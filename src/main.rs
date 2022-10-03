@@ -136,7 +136,6 @@ impl Universe {
         self.chunks.insert(chunk_pos, chunk);
     }
 
-    #[allow(dead_code)]
     fn despawn_chunk(&mut self, commands: &mut Commands, chunk_pos: (i32, i32)) {
         if let Some(chunk) = self.chunks.get(&chunk_pos) {
             commands.entity(chunk.entity).despawn();
@@ -314,6 +313,28 @@ fn handle_play_pause(
     if keyboard_input.just_pressed(KeyCode::Right) {
         if let Ok(mut universe) = universe.get_single_mut() {
             universe.tick(&mut commands, &mut meshes);
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::R) {
+        if let Ok(mut universe) = universe.get_single_mut() {
+            for chunk in universe.chunks.values_mut() {
+                for x in 0..50 {
+                    for y in 0..50 {
+                        chunk.current_gen[x][y] = rand::random();
+                    }
+                }
+            }
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::C) {
+        if let Ok(mut universe) = universe.get_single_mut() {
+            let positions = universe.chunks.keys().copied().collect::<Vec<_>>();
+
+            for position in positions {
+                universe.despawn_chunk(&mut commands, position);
+            }
         }
     }
 }

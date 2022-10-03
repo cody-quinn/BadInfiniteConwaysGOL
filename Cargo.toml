@@ -10,6 +10,7 @@ bevy-inspector-egui = "0.13.0"
 bevy-web-resizer = "3.0.0"
 num = "0.4.0"
 libmath = "0.2.1"
+rand = "0.8.5"
 
 [dependencies.bevy]
 version = "0.8.1"
