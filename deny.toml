@@ -20,8 +20,12 @@ notice = "warn"
 [licenses]
 allow = [
     "MIT",
+    "MIT-0",
     "Apache-2.0",
     "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "BSL-1.0",
 ]
 
 # Deny all unlicensed, copyleft and other not explicitly allowed licenses
@@ -31,7 +35,12 @@ allow-osi-fsf-free = "neither"
 default = "deny"
 
 # Some crates require weird licenses, exceptions for those crates can be made here
-exceptions = []
+exceptions = [
+    { allow = ["Unicode-DFS-2016"], name = "unicode-ident", version = "*" },
+    { allow = ["Zlib"], name = "bevy_mikktspace", version = "*" },
+    { allow = ["Zlib"], name = "adler32", version = "*" },
+    { allow = ["Zlib"], name = "const_panic", version = "*" },
+]
 
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
