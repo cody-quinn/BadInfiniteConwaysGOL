@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <link rel="icon" href="data:," />
+    <title>Conway's Game of Life</title>
+  </head>
+  <body>
+    <script type="module">
+      // Starting up our game of life
+      import init from "./gameoflife.js";
+      init();
+
+      // Preventing the context menu from being opened
+      document.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+      });
+    </script>
+    <style type="text/css">
+      html {
+        box-sizing: border-box;
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: inherit;
+      }
+
+      canvas {
+        background-color: black;
+        outline: none;
+        position: absolute;
+      }
+
+      nav {
+        background-color: black;
+        position: fixed;
+        z-index: 999;
+        bottom: 0;
+        left: 0;
+        padding: 2px;
+      }
+
+      a {
+        color: white;
+      }
+    </style>
+    <nav>
+      <a href="#" target="_blank">view source</a>
+    </nav>
+  </body>
+</html>

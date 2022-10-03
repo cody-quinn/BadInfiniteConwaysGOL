@@ -1,0 +1,35 @@
+[package]
+name = "gameoflife"
+version = "0.1.0"
+edition = "2021"
+description = "Game of life written in WASM"
+license = "MIT or Apache 2.0"
+
+[dependencies]
+bevy-inspector-egui = "0.13.0"
+bevy-web-resizer = "3.0.0"
+num = "0.4.0"
+libmath = "0.2.1"
+
+[dependencies.bevy]
+version = "0.8.1"
+default-features = false
+features = [ "bevy_render", "bevy_winit", "bevy_asset" ]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.bevy]
+version = "0.8.1"
+default-features = false
+features = [ "x11" ]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+strip = "debuginfo"
+lto = "thin"
