@@ -1380,6 +1380,7 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy-web-resizer",
+ "bevy_egui",
  "console_error_panic_hook",
  "libmath",
  "num",

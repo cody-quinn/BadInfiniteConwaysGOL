@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 #![warn(
     clippy::wildcard_imports,
     clippy::string_add,
@@ -12,15 +13,16 @@ mod utils;
 use bevy::log::{Level, LogSettings};
 use bevy::prelude::{
     App, Assets, Camera2dBundle, Color, Commands, Component, ComputedVisibility, Entity, GlobalTransform, Handle,
-    Input, KeyCode, Mesh, MouseButton, Query, Res, ResMut, SystemSet, Transform, Vec2, Visibility,
+    Input, KeyCode, Mesh, MouseButton, Query, Res, ResMut, Transform, Vec2, Visibility,
 };
 use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::sprite::{ColorMaterial, Mesh2dHandle};
-use bevy::time::FixedTimestep;
+use bevy::time::{Stopwatch, Time};
 use bevy::utils::HashMap;
 use bevy::window::WindowDescriptor;
 use bevy::DefaultPlugins;
+use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_inspector_egui::Inspectable;
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
@@ -54,17 +56,19 @@ fn main() {
     .insert_resource(CursorDrawState::default())
     .add_plugins(DefaultPlugins)
     .add_plugin(CursorPlugin)
+    .add_plugin(EguiPlugin)
     .add_startup_system(init_world)
     .add_system(input::handle_keyboard_pan_and_zoom)
     .add_system(input::handle_mouse_pan_and_zoom)
     .add_system(handle_click)
     .add_system(handle_play_pause)
-    .add_system(tick_universe)
-    .add_system_set(
-        SystemSet::new()
-            .with_run_criteria(FixedTimestep::steps_per_second(1.0))
-            .with_system(tick_universe),
-    );
+    .add_system(cgol_gui)
+    .add_system(tick_universe);
+    // .add_system_set(
+    //     SystemSet::new()
+    //         .with_run_criteria(FixedTimestep::steps_per_second(15.0))
+    //         .with_system(tick_universe),
+    // );
 
     #[cfg(debug_assertions)]
     {
@@ -90,19 +94,64 @@ fn init_world(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial
         .insert(Universe::new(materials.add(ColorMaterial::from(Color::GREEN))));
 }
 
+fn cgol_gui(
+    mut egui_ctx: ResMut<EguiContext>,
+    mut state: ResMut<GlobalState>,
+    mut universe: Query<&mut Universe>,
+    mut commands: Commands,
+) {
+    egui::Window::new("Options")
+        .vscroll(true)
+        .default_width(175.0)
+        .resizable(false)
+        .show(egui_ctx.ctx_mut(), |ui| {
+            ui.horizontal(|ui| {
+                ui.label("TPS");
+                ui.add(egui::Slider::new(&mut state.tps, 1..=100));
+            });
+
+            if ui
+                .add_sized(
+                    [175.0, 20.0],
+                    egui::Button::new(if state.paused { "Play" } else { "Pause" }),
+                )
+                .clicked()
+            {
+                state.paused = !state.paused;
+            };
+
+            if ui.add_sized([175.0, 20.0], egui::Button::new("Clear")).clicked() {
+                if let Ok(mut universe) = universe.get_single_mut() {
+                    universe.clear(&mut commands);
+                }
+            };
+
+            if ui.add_sized([175.0, 20.0], egui::Button::new("Randomize")).clicked() {
+                if let Ok(mut universe) = universe.get_single_mut() {
+                    universe.randomize();
+                }
+            };
+
+            ui.separator();
+            ui.hyperlink_to("source code", "https://github.com/CatDevz/BadInfiniteConwaysGOL");
+        });
+}
+
 pub struct GlobalState {
     pub paused: bool,
+    pub tps: i32,
 }
 
 impl Default for GlobalState {
     fn default() -> Self {
-        Self { paused: true }
+        Self { paused: true, tps: 15 }
     }
 }
 
 #[derive(Component)]
 struct Universe {
     chunks: HashMap<(i32, i32), Chunk>,
+    since_tick: Stopwatch,
 
     // Bevy stuff
     material: Handle<ColorMaterial>,
@@ -112,6 +161,7 @@ impl Universe {
     fn new(material: Handle<ColorMaterial>) -> Self {
         Self {
             chunks: HashMap::default(),
+            since_tick: Stopwatch::new(),
             material,
         }
     }
@@ -249,17 +299,41 @@ impl Universe {
             }
         }
     }
+
+    fn randomize(&mut self) {
+        for chunk in self.chunks.values_mut() {
+            for x in 0..50 {
+                for y in 0..50 {
+                    chunk.current_gen[x][y] = rand::random();
+                }
+            }
+        }
+    }
+
+    fn clear(&mut self, commands: &mut Commands) {
+        let positions = self.chunks.keys().copied().collect::<Vec<_>>();
+
+        for position in positions {
+            self.despawn_chunk(commands, position);
+        }
+    }
 }
 
 fn tick_universe(
     mut universe: Query<&mut Universe>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    time: Res<Time>,
     state: Res<GlobalState>,
 ) {
     if let Ok(mut universe) = universe.get_single_mut() {
         if !state.paused {
-            universe.tick(&mut commands, &mut meshes);
+            if universe.since_tick.elapsed().as_millis() > (1000.0 / state.tps as f64) as u128 {
+                universe.tick(&mut commands, &mut meshes);
+                universe.since_tick.reset();
+            }
+
+            universe.since_tick.tick(time.delta());
         } else {
             for (_, chunk) in &mut universe.chunks {
                 chunk.recalculate_mesh(&mut meshes);
@@ -276,12 +350,17 @@ pub struct CursorDrawState {
 fn handle_click(
     mouse_btn_input: Res<Input<MouseButton>>,
     cursor_pos: Res<CursorPosition>,
+    mut egui_ctx: ResMut<EguiContext>,
     mut universe: Query<&mut Universe>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut draw_state: ResMut<CursorDrawState>,
     state: Res<GlobalState>,
 ) {
+    if egui_ctx.ctx_mut().is_using_pointer() {
+        return;
+    }
+
     if !state.paused {
         return;
     }
@@ -318,23 +397,13 @@ fn handle_play_pause(
 
     if keyboard_input.just_pressed(KeyCode::R) {
         if let Ok(mut universe) = universe.get_single_mut() {
-            for chunk in universe.chunks.values_mut() {
-                for x in 0..50 {
-                    for y in 0..50 {
-                        chunk.current_gen[x][y] = rand::random();
-                    }
-                }
-            }
+            universe.randomize();
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::C) {
         if let Ok(mut universe) = universe.get_single_mut() {
-            let positions = universe.chunks.keys().copied().collect::<Vec<_>>();
-
-            for position in positions {
-                universe.despawn_chunk(&mut commands, position);
-            }
+            universe.clear(&mut commands);
         }
     }
 }

@@ -10,7 +10,7 @@
     <script type="module">
       // Starting up our game of life
       import init from "./gameoflife.js";
-      init();
+      init().finally((x) => document.getElementById("loading").remove());
 
       // Preventing the context menu from being opened
       document.addEventListener("contextmenu", (ev) => {
@@ -35,27 +35,7 @@
         outline: none;
         position: absolute;
       }
-
-      nav {
-        background-color: black;
-        position: fixed;
-        z-index: 999;
-        bottom: 0;
-        left: 0;
-        padding: 2px;
-      }
-
-      a {
-        color: white;
-      }
     </style>
-    <nav>
-      <a
-        href="https://github.com/CatDevz/BadInfiniteConwaysGOL"
-        target="_blank"
-      >
-        view source
-      </a>
-    </nav>
+    <h1 id="loading">Loading...</h1>
   </body>
 </html>
